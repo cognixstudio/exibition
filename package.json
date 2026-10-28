@@ -1,0 +1,20 @@
+{
+  "name": "gesture-lab",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "setup": "node scripts/setup-mediapipe.js",
+    "postinstall": "node scripts/setup-mediapipe.js",
+    "dev": "node scripts/setup-mediapipe.js && vite",
+    "build": "node scripts/setup-mediapipe.js && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@mediapipe/tasks-vision": "^0.10.14"
+  },
+  "devDependencies": {
+    "vite": "^5.4.0"
+  }
+}
