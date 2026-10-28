@@ -17,6 +17,8 @@ const MODES = [
     text: 'Paint glowing strokes in mid-air, then ask the AI what you drew.', hint: '☝️ draw · 🖐️ pause · ✊ erase · ✌️ color' },
   { href: '#/game', icon: '🎮', title: 'Gesture Game', accent: 'var(--magenta)',
     text: 'Five games: rock-paper-scissors, fruit slicer, space shooter, air hockey and a gesture memory challenge.', hint: '✊ ✋ ✌️ · palm · index fingertip' },
+  { href: '#/strike', icon: '🎯', title: 'Gesture Strike', accent: 'var(--magenta)',
+    text: 'Full-screen action shooter: aim with your fingertip and switch weapons with gestures.', hint: '☝️ blaster · ✌️ flak · ✊ rail · 🖐️ shockwave' },
   { href: '#/sign', icon: '🤟', title: 'Sign Translator', accent: 'var(--lime)',
     text: 'Spell with the ASL alphabet and turn it into speech in your language.', hint: 'Hold a sign for one second' },
   { href: '#/buddy', icon: '🤖', title: 'Talk to Zippy', accent: 'var(--cyan)',

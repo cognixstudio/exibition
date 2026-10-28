@@ -7,6 +7,7 @@ Control the browser with your hands. Draw in the air, play games, and fingerspel
 
 ## Features
 - **Air Draw**: ☝️ draw, 🖐️ pause, ✊ erase, ✌️ change color. Neon strokes, Undo, Clear, Save PNG, hide video, and **AI Guess** (vision model guesses your sketch and adds a fun fact).
+- **Gesture Strike** (full-screen action shooter): defend your base from waves of drones, gunships, meteors and bosses. Your fingertip is the crosshair and each gesture is a weapon: ☝️ blaster, ✌️ flak burst, ✊ hold-and-release rail beam, 🖐️ shockwave, 🤟 repair. Easy / Normal / Hard difficulty (each with its own leaderboard), combos, power-ups, and a boss every 5th wave (War Robot and Kraken alternate), sound, AI commentary and its own leaderboard. It pauses automatically if your hand leaves the camera.
 - **Gesture Game** (5 modes, with sound effects and an AI commentator):
   - **Rock · Paper · Scissors** vs the computer.
   - **Fruit Slicer**: slice with your index fingertip; multi-fruit swipes give combo bonuses; avoid bombs.

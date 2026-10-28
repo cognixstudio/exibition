@@ -9,6 +9,7 @@ const links = [
   ['/home', 'Home'],
   ['/draw', 'Air Draw'],
   ['/game', 'Game'],
+  ['/strike', 'Strike'],
   ['/sign', 'Sign'],
   ['/buddy', 'Zippy'],
   ['/settings', 'Settings'],

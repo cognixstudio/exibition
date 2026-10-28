@@ -5,6 +5,7 @@ const routes = {
   '/home': () => import('./pages/home.js'),
   '/draw': () => import('./pages/draw.js'),
   '/game': () => import('./pages/game.js'),
+  '/strike': () => import('./pages/strike.js'),
   '/sign': () => import('./pages/sign.js'),
   '/buddy': () => import('./pages/buddy.js'),
   '/settings': () => import('./pages/settings.js'),
