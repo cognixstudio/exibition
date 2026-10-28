@@ -7,12 +7,17 @@ Control the browser with your hands. Draw in the air, play games, and fingerspel
 
 ## Features
 - **Air Draw**: ☝️ draw, 🖐️ pause, ✊ erase, ✌️ change color. Neon strokes, Undo, Clear, Save PNG, hide video, and **AI Guess** (vision model guesses your sketch and adds a fun fact).
-- **Gesture Game**: Rock-Paper-Scissors with a countdown and score, plus **Fruit Slicer** with your index fingertip. An AI commentator reacts after each round.
+- **Gesture Game** (5 modes, with sound effects and an AI commentator):
+  - **Rock · Paper · Scissors** vs the computer.
+  - **Fruit Slicer**: slice with your index fingertip; multi-fruit swipes give combo bonuses; avoid bombs.
+  - **Space Defender**: steer with your palm; ✊ rapid fire, 🖐️ shield, ✌️ bomb; power-ups, tougher aliens and boss fights.
+  - **Air Hockey**: your fingertip is the paddle against an aiming CPU; first to 5 wins.
+  - **Copy Cat**: memorise a growing gesture pattern and repeat it; new gestures unlock as you progress.
 - **Sign Translator**: ASL letters A-Y by landmark rules (J and Z need motion, so type them), signs Hello / Yes / No / Thank you / I love you, Space and Backspace. Hold a sign for 1 second to accept it. Tricky signs are sent as a small hand crop to the vision model. **AI Fix** cleans up the text, and **Speak** reads it aloud after optional translation.
 - **Talk to a character**: pick Zippy (robot), Sakura (cheerful anime girl), Luna (sassy anime cat-girl) or Captain Pun (pirate). Each has its own look, personality and voice pitch. A live talking AI buddy. Speak (Chrome/Edge) or type, and Zippy answers out loud with jokes, puns, fun facts, riddles and friendly roasts. Supports Live conversation (auto-listens after each reply) and several languages.
 - **Hand control** (🖐️ in the navbar, or `Alt+H`): no mouse needed. Steer a glowing cursor with your index fingertip, pinch thumb + index to click, or hold still over a button for 1.3 s. Hover the ▲ ▼ buttons on the right edge to scroll. Clicks over the camera stage are ignored so drawing and games are never triggered by accident. It turns on automatically in Exhibition mode. Settings has a **sensitivity** slider (how far your hand must move) and a **dwell time** slider (0.1 to 3 s, or 0 to turn dwell off).
 - **Gesture reactions**: switch on *Gesture reactions (camera)* on the character page. Wave, thumbs up, peace sign, fist, I-love-you or point, and the character reacts out loud with floating emojis.
-- **Leaderboard + QR code**: Fruit Slicer keeps a local top 10 (enter your name after a high score) and shows a QR code so visitors can open the app on their phone. Set the public link under Settings → *Public link for QR codes*.
+- **Leaderboard + QR code**: Every arcade game (Fruit Slicer, Space Defender, Air Hockey, Copy Cat) keeps its own local top 10 (enter your name after a high score) and shows a QR code so visitors can open the app on their phone. Set the public link under Settings → *Public link for QR codes*.
 - **Exhibition mode** (`Alt+E` or the ⛶ button): fullscreen, navbar hidden. `Esc` exits.
 - **Attract mode** (only in Exhibition mode): after 45 seconds without a hand, tap or key, the app resets to Home and shows a big "Wave to start!" screen with a talking character, the top scores and a QR code. Wave, tap or press a key to begin.
 - **Offline / Demo fallback**: with no key, no network, or an API error, gestures still work and AI features return canned answers. Turn on **Demo mode** in Settings to force this.

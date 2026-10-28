@@ -7,6 +7,10 @@ import { getBoard, qualifies, addScore, clearBoard, boardHtml } from '../core/le
 import { qrSvg } from '../core/qr.js';
 import { toast } from '../core/ui.js';
 import { askAI } from '../core/openrouter.js';
+import { sfx, isMuted, setMuted } from '../core/sfx.js';
+import { createSpace } from '../games/space.js';
+import { createHockey } from '../games/hockey.js';
+import { createSimon } from '../games/simon.js';
 
 // ---- RPS data
 const MOVES = {
@@ -38,6 +42,10 @@ export function render(container) {
     <div class="tabs" role="tablist">
       <button class="tab active" role="tab" data-mode="rps" aria-selected="true">Rock · Paper · Scissors</button>
       <button class="tab" role="tab" data-mode="fruit" aria-selected="false">Fruit Slicer</button>
+      <button class="tab" role="tab" data-mode="space" aria-selected="false">Space Defender</button>
+      <button class="tab" role="tab" data-mode="hockey" aria-selected="false">Air Hockey</button>
+      <button class="tab" role="tab" data-mode="simon" aria-selected="false">Copy Cat</button>
+      <button class="tab mute" id="muteBtn" type="button" aria-label="Toggle sound"></button>
     </div>
 
     <div class="card" id="onboard">
@@ -81,19 +89,26 @@ export function render(container) {
         </div>
         <p class="muted center">Slice fruit with your index fingertip. Missed fruit costs a life. Avoid 💣.</p>
         <div class="toolbar"><button class="btn primary" id="fruitBtn">Start</button></div>
-        <div class="card board" id="boardCard">
-          <h3>🏆 Fruit Slicer leaderboard</h3>
-          <div class="board-body">
-            <div class="board-main">
-              <ol class="board-list" id="boardList"></ol>
-              <form class="name-row" id="nameForm" hidden>
-                <input id="nameInput" maxlength="12" placeholder="Your name" aria-label="Your name" autocomplete="off" />
-                <button class="btn primary" type="submit">Save score</button>
-              </form>
-              <button class="btn ghost" id="clearBoard" type="button">Reset board</button>
-            </div>
-            <div class="qr-box" id="qrBox"></div>
+      </div>
+
+      <div id="arcPanel" hidden>
+        <div class="chips" id="aHud"></div>
+        <p class="muted center" id="aHelp"></p>
+        <div class="toolbar"><button class="btn primary" id="arcBtn">Start</button></div>
+      </div>
+
+      <div class="card board" id="boardCard" hidden>
+        <h3 id="boardTitle">🏆 Leaderboard</h3>
+        <div class="board-body">
+          <div class="board-main">
+            <ol class="board-list" id="boardList"></ol>
+            <form class="name-row" id="nameForm" hidden>
+              <input id="nameInput" maxlength="12" placeholder="Your name" aria-label="Your name" autocomplete="off" />
+              <button class="btn primary" type="submit">Save score</button>
+            </form>
+            <button class="btn ghost" id="clearBoard" type="button">Reset board</button>
           </div>
+          <div class="qr-box" id="qrBox"></div>
         </div>
       </div>
 
@@ -108,6 +123,7 @@ export function render(container) {
 
   let active = true, unsub = null, overlay = null, raf = 0, lastT = 0;
   let mode = 'rps', W = 640, H = 480, scale = 1, mirror = true;
+  const env = { W: 640, H: 480, scale: 1 }; // read live by the arcade games
 
   // =============== shared helpers ===============
   function showMsg(text, sticky = false) {
@@ -136,6 +152,29 @@ export function render(container) {
     text = text.split('\n')[0].replace(/^["“']|["”']$/g, '').trim().slice(0, 160);
     el.textContent = text || rand(canned);
   }
+
+  // =============== arcade games (space / hockey / simon) ===============
+  const BOARD_TITLES = { fruit: 'Fruit Slicer', space: 'Space Defender', hockey: 'Air Hockey', simon: 'Copy Cat' };
+  const api = {
+    hud(html) { const el = $('aHud'); if (el._h !== html) { el._h = html; el.innerHTML = html; } },
+    msg: showMsg,
+    hideMsg,
+    say: (prompt, canned) => commentate(prompt, canned),
+    over: (score) => { recordScore(mode, score); $('arcBtn').textContent = 'Play again'; },
+  };
+  const games = { space: createSpace(env, api), hockey: createHockey(env, api), simon: createSimon(env, api) };
+  const stopGames = () => Object.values(games).forEach((g) => g.stop());
+  $('arcBtn').addEventListener('click', () => {
+    const g = games[mode];
+    if (!g) return;
+    if (pending != null) { savePending('Guest'); drawBoard(); } // unsaved score stays as Guest
+    $('line').textContent = ''; lineId++;
+    g.start();
+    $('arcBtn').textContent = 'Restart';
+  });
+  const paintMute = () => { $('muteBtn').textContent = isMuted() ? '🔇 Sound off' : '🔊 Sound on'; };
+  $('muteBtn').addEventListener('click', () => { setMuted(!isMuted()); paintMute(); if (!isMuted()) sfx.pick(); });
+  paintMute();
 
   // =============== Rock-Paper-Scissors ===============
   const score = { you: 0, tie: 0, cpu: 0 };
@@ -238,10 +277,10 @@ export function render(container) {
   // =============== leaderboard ===============
   const NAME_KEY = 'gesture-lab:player-name';
   let pending = null; // a qualifying score still waiting for a name
-  const drawBoard = (hl = 0) => { $('boardList').innerHTML = boardHtml(getBoard('fruit'), hl); };
+  const drawBoard = (hl = 0) => { $('boardList').innerHTML = boardHtml(getBoard(mode === 'rps' ? 'fruit' : mode), hl); };
   function savePending(name) {
     if (pending == null) return 0;
-    const e = addScore('fruit', name, pending);
+    const e = addScore(pending.key, name, pending.score);
     pending = null; $('nameForm').hidden = true;
     return e.date;
   }
@@ -253,10 +292,19 @@ export function render(container) {
     toast('Score saved!', 'success');
   });
   $('clearBoard').addEventListener('click', () => {
-    if (confirm('Clear all saved scores?')) { clearBoard('fruit'); pending = null; $('nameForm').hidden = true; drawBoard(); }
+    if (confirm('Clear all saved scores for this game?')) { clearBoard(mode === 'rps' ? 'fruit' : mode); pending = null; $('nameForm').hidden = true; drawBoard(); }
   });
   try { $('qrBox').innerHTML = `${qrSvg(shareUrl(), { size: 124 })}<span>Scan to play on your phone</span>`; } catch { $('qrBox').hidden = true; }
   drawBoard();
+
+  /** Offer the name form if this score makes the current game's top 10. */
+  function recordScore(key, score) {
+    if (!qualifies(key, score)) return;
+    pending = { key, score };
+    try { $('nameInput').value = localStorage.getItem(NAME_KEY) || ''; } catch { /* ignore */ }
+    $('nameForm').hidden = false;
+    drawBoard();
+  }
 
   function gameOver() {
     running = false;
@@ -264,11 +312,7 @@ export function render(container) {
       best = fScore; $('fBest').textContent = best;
       try { localStorage.setItem(BEST_KEY, String(best)); } catch { /* ignore */ }
     }
-    if (qualifies('fruit', fScore)) {
-      pending = fScore;
-      try { $('nameInput').value = localStorage.getItem(NAME_KEY) || ''; } catch { /* ignore */ }
-      $('nameForm').hidden = false;
-    }
+    recordScore('fruit', fScore);
     showMsg(`Game over · ${fScore}`, true);
     $('fruitBtn').textContent = 'Play again';
     commentate(`A fruit-slicing game just ended. The player sliced ${fScore} fruits. Their best is ${best}.`, CANNED.fruit);
@@ -286,12 +330,13 @@ export function render(container) {
   function sliceFruit(f) {
     f.dead = true;
     if (f.bomb) {
+      sfx.boom();
       burst(f.x, f.y, '#ff5c7a', 14);
       pops.push({ x: f.x, y: f.y, text: '💥', life: 700 });
       loseLife();
       return;
     }
-    fScore++; updateHud();
+    fScore++; updateHud(); sfx.slice();
     for (const side of [-1, 1]) {
       halves.push({ emoji: f.emoji, x: f.x, y: f.y, r: f.r, rot: f.rot, spin: side * 0.004, vx: f.vx + side * 0.12 * scale, vy: f.vy - 0.05, side, life: 700 });
     }
@@ -308,7 +353,12 @@ export function render(container) {
   function trySlice(a, b) {
     const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
     if (!running || len < 6 * scale || len > W * 0.5) return; // ignore resting finger and tracker jumps
-    fruits.forEach((f) => { if (!f.dead && distToSeg(f.x, f.y, a, b) <= f.r) sliceFruit(f); });
+    let hits = 0;
+    fruits.forEach((f) => { if (!f.dead && distToSeg(f.x, f.y, a, b) <= f.r) { if (!f.bomb) hits++; sliceFruit(f); } });
+    if (hits > 1 && running) { // combo: slicing several fruits in one swipe
+      fScore += hits - 1; updateHud(); sfx.good();
+      pops.push({ x: b[0], y: b[1] - 30 * scale, text: `COMBO x${hits}!`, life: 900 });
+    }
   }
 
   function step(dt) {
@@ -343,6 +393,7 @@ export function render(container) {
 
   function draw(now) {
     gctx.clearRect(0, 0, W, H);
+    if (games[mode]) { games[mode].draw(gctx, now); return; }
     if (mode !== 'fruit') return;
     for (const f of fruits) {
       gctx.save(); gctx.translate(f.x, f.y); gctx.rotate(f.rot); drawEmoji(f.emoji, f.r); gctx.restore();
@@ -380,7 +431,7 @@ export function render(container) {
   function loop(t) {
     raf = requestAnimationFrame(loop);
     const dt = Math.min(50, t - (lastT || t)); lastT = t;
-    if (mode === 'fruit') step(dt);
+    if (mode === 'fruit') step(dt); else games[mode]?.step(dt);
     draw(t);
   }
 
@@ -394,6 +445,12 @@ export function render(container) {
     }
     if (sampling && h) samples.push(g);
 
+    const arcade = games[mode];
+    if (arcade) {
+      const lm = h?.landmarks, pt = (i) => (lm ? [(mirror ? 1 - lm[i].x : lm[i].x) * W, lm[i].y * H] : null);
+      arcade.onHand({ hand: h || null, gesture: g, tip: pt(8), palm: pt(9) });
+    }
+
     if (mode === 'fruit') {
       if (!h) { tip = null; return; }
       const p = [(mirror ? 1 - h.landmarks[8].x : h.landmarks[8].x) * W, h.landmarks[8].y * H];
@@ -406,18 +463,24 @@ export function render(container) {
   // =============== mode tabs ===============
   function setMode(m) {
     mode = m;
-    container.querySelectorAll('.tab').forEach((t) => {
+    container.querySelectorAll('.tab[data-mode]').forEach((t) => {
       const on = t.dataset.mode === m;
       t.classList.toggle('active', on); t.setAttribute('aria-selected', String(on));
     });
     $('rpsPanel').hidden = m !== 'rps';
     $('fruitPanel').hidden = m !== 'fruit';
+    $('arcPanel').hidden = !games[m];
+    $('boardCard').hidden = m === 'rps';
+    stopGames();
+    if (games[m]) { $('aHelp').textContent = games[m].help; $('aHud').innerHTML = ''; $('aHud')._h = ''; $('arcBtn').textContent = 'Start'; }
+    $('boardTitle').textContent = `🏆 ${BOARD_TITLES[m] || ''} leaderboard`;
+    drawBoard();
     roundId++; busy = false; sampling = false; running = false; tip = null; trail = [];
     fruits = []; halves = []; parts = []; pops = [];
     $('playBtn').disabled = false; $('fruitBtn').textContent = 'Start';
     hideMsg(); $('line').textContent = ''; lineId++;
   }
-  container.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => setMode(t.dataset.mode)));
+  container.querySelectorAll('.tab[data-mode]').forEach((t) => t.addEventListener('click', () => setMode(t.dataset.mode)));
 
   // =============== start / stop ===============
   function showOnly(id) { ['onboard', 'loading', 'live'].forEach((k) => { $(k).hidden = k !== id; }); }
@@ -436,6 +499,7 @@ export function render(container) {
       W = gameCanvas.width = overlayCanvas.width = video.videoWidth || 640;
       H = gameCanvas.height = overlayCanvas.height = video.videoHeight || 480;
       scale = W / 640;
+      env.W = W; env.H = H; env.scale = scale;
       mirror = !!getSettings().mirror;
       $('stage').style.setProperty('--ar', W / H);
       applyMirror($('stage'));
@@ -463,6 +527,7 @@ export function render(container) {
   return () => {
     active = false;
     roundId++;
+    stopGames();
     cancelAnimationFrame(raf);
     clearTimeout(showMsg.t);
     unsub?.();

@@ -15,7 +15,7 @@ export function render(container) {
   container.innerHTML = `
   <section class="page narrow">
     <h1>Settings</h1>
-    <p class="muted">Everything is saved in this browser only.</p>
+    <p class="muted">Everything is saved in this browser only, and changes are saved automatically.</p>
 
     <form class="card form" id="settings-form" autocomplete="off" novalidate>
       <div class="field">
@@ -87,6 +87,29 @@ export function render(container) {
   </section>`;
 
   const $ = (id) => container.querySelector('#' + id);
+  let camsLoaded = false; // until the camera list is built, the dropdown only has "Default", so don't overwrite the saved camera
+
+  /** Read every field. `strict` (the Save button) falls back to defaults; autosave keeps the previous value instead. */
+  function collect(strict) {
+    const prev = getSettings();
+    return {
+      apiKey: $('apiKey').value.trim(),
+      model: $('model').value.trim() || (strict ? DEFAULTS.model : prev.model),
+      temperature: parseFloat($('temperature').value),
+      hcSensitivity: parseFloat($('hcSens').value),
+      hcDwell: parseFloat($('hcDwell').value),
+      cameraId: camsLoaded ? $('camera').value : prev.cameraId,
+      mirror: $('mirror').checked,
+      speech: $('speech').checked,
+      demo: $('demo').checked,
+      shareUrl: $('shareUrl').value.trim(),
+    };
+  }
+
+  // Autosave: the key (and every other field) is stored as soon as it changes, so leaving the page without pressing Save loses nothing.
+  const autosave = () => saveSettings(collect(false));
+  $('settings-form').addEventListener('input', autosave);
+  $('settings-form').addEventListener('change', autosave);
 
   // ---- show/hide key
   $('toggleKey').addEventListener('click', (e) => {
@@ -113,6 +136,7 @@ export function render(container) {
       const saved = getSettings().cameraId;
       $('camera').innerHTML = '<option value="">Default camera</option>' + cams.map((c, i) =>
         `<option value="${esc(c.deviceId)}" ${c.deviceId === saved ? 'selected' : ''}>${esc(c.label || `Camera ${i + 1}`)}</option>`).join('');
+      camsLoaded = true;
       $('camHint').textContent = cams.length ? `${cams.length} camera(s) found.` : 'No camera found.';
     } catch (err) {
       const denied = err?.name === 'NotAllowedError';
@@ -154,18 +178,7 @@ export function render(container) {
   // ---- save / reset
   $('settings-form').addEventListener('submit', (e) => {
     e.preventDefault();
-    const ok = saveSettings({
-      apiKey: $('apiKey').value.trim(),
-      model: $('model').value.trim() || DEFAULTS.model,
-      temperature: parseFloat($('temperature').value),
-      hcSensitivity: parseFloat($('hcSens').value),
-      hcDwell: parseFloat($('hcDwell').value),
-      cameraId: $('camera').value,
-      mirror: $('mirror').checked,
-      speech: $('speech').checked,
-      demo: $('demo').checked,
-      shareUrl: $('shareUrl').value.trim(),
-    });
+    const ok = saveSettings(collect(true));
     toast(ok ? 'Settings saved.' : 'Could not save. Browser storage may be blocked.', ok ? 'success' : 'error');
   });
 
@@ -174,4 +187,6 @@ export function render(container) {
     render(container);
     toast('Settings reset to defaults.', 'info');
   });
+
+  return () => { if ($('apiKey')) saveSettings(collect(false)); }; // also flush when leaving the page
 }

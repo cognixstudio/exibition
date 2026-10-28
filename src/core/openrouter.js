@@ -44,6 +44,10 @@ export async function askAI(messages, opts = {}) {
     ];
   }
 
+  // Thinking models spend part of max_tokens on hidden reasoning, which cuts the visible answer short.
+  // Callers ask for short replies in the prompt, so a roomier cap costs nothing and avoids truncation.
+  const cap = opts.maxTokens ? Math.max(opts.maxTokens * 4, 600) : 0;
+
   const post = async (messages, extra = {}) => {
     let r;
     try {
@@ -59,7 +63,7 @@ export async function askAI(messages, opts = {}) {
           model,
           messages,
           temperature: opts.temperature ?? s.temperature,
-          ...(opts.maxTokens ? { max_tokens: opts.maxTokens } : {}),
+          ...(cap ? { max_tokens: cap } : {}),
           ...extra,
         }),
       });
@@ -101,12 +105,23 @@ export async function askAI(messages, opts = {}) {
   };
   let text = extract(data);
 
-  // Reasoning models (e.g. "...-vl:free", "thinking") can spend a small token budget on thinking and
-  // return nothing. Retry once with a much bigger budget and low reasoning effort.
-  if (!text && res.ok) {
-    const big = Math.max((opts.maxTokens || 200) * 8, 1200);
+  const finish = (d) => d?.choices?.[0]?.finish_reason;
+
+  // Empty or cut-off reply (finish_reason "length"): the model likely spent its budget on thinking.
+  // Retry once with a much bigger budget and low reasoning effort.
+  if ((!text || finish(data) === 'length') && res.ok) {
+    const big = Math.max((opts.maxTokens || 200) * 10, 2000);
     const [r2, d2] = await post(msgs, { max_tokens: big, reasoning: { effort: 'low' } });
-    if (r2.ok) { text = extract(d2); data = d2; }
+    if (r2.ok) {
+      const t2 = extract(d2);
+      if (t2 && (!text || finish(d2) !== 'length' || t2.length > text.length)) { text = t2; data = d2; }
+    }
+  }
+
+  // Still cut off? End on the last complete sentence instead of stopping mid-word.
+  if (text && finish(data) === 'length') {
+    const m = text.match(/^[\s\S]*[.!?…](?=\s|$)/);
+    if (m && m[0].length > text.length * 0.4) text = m[0].trim();
   }
 
   if (!text) {
