@@ -28,7 +28,7 @@ export const NO_KEY_HTML =
 export async function askAI(messages, opts = {}) {
   const s = getSettings();
   const apiKey = (opts.apiKey ?? s.apiKey).trim();
-  const model = (opts.model ?? s.model).trim() || 'google/gemini-3.8-flash';
+  const model = (opts.model ?? s.model).trim() || 'openrouter/free';
   if (!apiKey) throw new AIError('No OpenRouter API key set.', 'NO_KEY');
 
   // Copy messages; turn the last user message into text + image parts if an image is given.
