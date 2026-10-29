@@ -8,6 +8,7 @@ import { qrSvg } from '../core/qr.js';
 import { toast } from '../core/ui.js';
 import { askAI } from '../core/openrouter.js';
 import { sfx, isMuted, setMuted } from '../core/sfx.js';
+import { muteHtml } from '../core/icons.js';
 import { createSpace } from '../games/space.js';
 import { createHockey } from '../games/hockey.js';
 import { createSimon } from '../games/simon.js';
@@ -172,7 +173,7 @@ export function render(container) {
     g.start();
     $('arcBtn').textContent = 'Restart';
   });
-  const paintMute = () => { $('muteBtn').textContent = isMuted() ? '🔇 Sound off' : '🔊 Sound on'; };
+  const paintMute = () => { $('muteBtn').innerHTML = muteHtml(isMuted()); };
   $('muteBtn').addEventListener('click', () => { setMuted(!isMuted()); paintMute(); if (!isMuted()) sfx.pick(); });
   paintMute();
 

@@ -404,3 +404,9 @@ kbd { font: inherit; font-size: 0.8em; padding: 0.05rem 0.4rem; border: 1px soli
 
 .seg { display: flex; gap: 0.4rem; justify-content: center; flex-wrap: wrap; }
 .diff-btn.on { border-color: var(--cyan); box-shadow: 0 0 14px rgba(25, 243, 255, 0.45); color: var(--cyan); }
+
+/* ---------- SVG icons on buttons (replace emojis) ---------- */
+.ico { display: inline-block; flex: none; vertical-align: middle; }
+.btn:has(.ico), .chip.btn-chip, .char-btn, .tab.mute { display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; }
+.nav-btn .ico, .mic .ico { display: block; }
+#hc-scroll button { display: flex; align-items: center; justify-content: center; }

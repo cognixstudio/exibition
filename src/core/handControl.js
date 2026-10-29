@@ -9,6 +9,7 @@ import { getTracker } from './handTracker.js';
 import { startCamera, stopCamera } from './camera.js';
 import { getSettings } from './storage.js';
 import { toast } from './ui.js';
+import { icon } from './icons.js';
 
 const KEY = 'gesture-lab:handctl';
 const INTERACTIVE = 'button, a[href], input, select, textarea, label, summary, [role="button"], [role="radio"], .tab, .chip';
@@ -58,7 +59,7 @@ function buildUi() {
   cursor.innerHTML = '<b></b><i></i>';
   scrollBox = document.createElement('div');
   scrollBox.id = 'hc-scroll';
-  scrollBox.innerHTML = '<button type="button" data-dir="-1" aria-label="Scroll up">▲</button><button type="button" data-dir="1" aria-label="Scroll down">▼</button>';
+  scrollBox.innerHTML = '<button type="button" data-dir="-1" aria-label="Scroll up">' + icon('chevronUp', 28) + '</button><button type="button" data-dir="1" aria-label="Scroll down">' + icon('chevronDown', 28) + '</button>';
   scrollBox.addEventListener('click', (e) => {
     const b = e.target.closest('button[data-dir]');
     if (b) window.scrollBy({ top: Number(b.dataset.dir) * 320, behavior: 'smooth' });

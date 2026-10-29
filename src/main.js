@@ -3,6 +3,7 @@ import './styles.css';
 import { startRouter } from './router.js';
 import { toast } from './core/ui.js';
 import { initAttract } from './core/attract.js';
+import { icon } from './core/icons.js';
 import { setHandControl, isHandControl, restoreHandControl } from './core/handControl.js';
 
 const links = [
@@ -23,8 +24,8 @@ function buildNavbar() {
     <nav aria-label="Main">
       ${links.map(([p, l]) => `<a data-route="${p}" href="#${p}">${l}</a>`).join('')}
     </nav>
-    <button class="btn ghost nav-btn" id="handBtn" aria-pressed="false" title="Hand control: no mouse needed (Alt+H)" aria-label="Hand control">🖐️</button>
-    <button class="btn ghost nav-btn" id="exhibitBtn" aria-pressed="false" title="Exhibition mode (Alt+E)" aria-label="Exhibition mode">⛶</button>`;
+    <button class="btn ghost nav-btn" id="handBtn" aria-pressed="false" title="Hand control: no mouse needed (Alt+H)" aria-label="Hand control">${icon('hand', 20)}</button>
+    <button class="btn ghost nav-btn" id="exhibitBtn" aria-pressed="false" title="Exhibition mode (Alt+E)" aria-label="Exhibition mode">${icon('expand', 20)}</button>`;
 
   const exit = document.createElement('button');
   exit.id = 'exitExhibit';

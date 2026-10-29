@@ -7,6 +7,7 @@ import { qrSvg } from '../core/qr.js';
 import { askAI } from '../core/openrouter.js';
 import { isHandControl } from '../core/handControl.js';
 import { sfx, isMuted, setMuted } from '../core/sfx.js';
+import { iconLabel, muteHtml } from '../core/icons.js';
 import { createStrike, DIFFICULTIES } from '../games/strike.js';
 
 const DIFF_KEY = 'gesture-lab:strike-diff';
@@ -37,7 +38,7 @@ export function render(container) {
       </div>
       <div id="introLoad" hidden><div class="skeleton" style="height:18px;width:60%"></div><p class="muted" id="loadMsg">Loading hand model…</p></div>
       <div id="introReady" hidden>
-        <button class="btn primary big" id="playBtn">▶ Play full screen</button>
+        <button class="btn primary big" id="playBtn">${iconLabel('play', 'Play full screen', 20)}</button>
         <p class="muted">Stand about an arm's length from the camera with good light. Press Esc to leave.</p>
       </div>
       <div class="card board strike-board-mini"><h3 id="introBoardTitle">🏆 Leaderboard</h3><ol class="board-list" id="introBoard"></ol></div>
@@ -45,7 +46,7 @@ export function render(container) {
 
     <div class="strike-stage" id="sstage" hidden>
       <canvas id="sc"></canvas>
-      <button class="btn ghost strike-exit" id="exitBtn" type="button" aria-label="Exit game">✕ Exit</button>
+      <button class="btn ghost strike-exit" id="exitBtn" type="button" aria-label="Exit game">${iconLabel('close', 'Exit', 18)}</button>
       <div class="strike-over" id="sover" hidden>
         <div class="card strike-over-card">
           <h2>Mission over</h2>
@@ -258,7 +259,7 @@ export function render(container) {
     paintBoards(); $('sover').hidden = false;
   }
 
-  const paintMute = () => { $('muteBtn').textContent = isMuted() ? '🔇 Sound off' : '🔊 Sound on'; };
+  const paintMute = () => { $('muteBtn').innerHTML = muteHtml(isMuted()); };
   $('muteBtn').addEventListener('click', () => { setMuted(!isMuted()); paintMute(); if (!isMuted()) sfx.pick(); });
   paintMute();
 

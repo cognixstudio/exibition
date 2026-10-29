@@ -7,14 +7,16 @@ import { toast } from '../core/ui.js';
 import { getTracker } from '../core/handTracker.js';
 import { startCamera, stopCamera, applyMirror } from '../core/camera.js';
 import { pingActivity } from '../core/attract.js';
+import { icon, iconLabel, CHAR_ICON } from '../core/icons.js';
+import { detectExtra, createSmoother } from '../core/extraGestures.js';
 import { CHARACTERS, CHAR_ORDER, pickVoice } from '../core/characters.js';
 
 const LANGS = [['en-US', 'English'], ['hi-IN', 'Hindi'], ['ta-IN', 'Tamil'], ['te-IN', 'Telugu'], ['es-ES', 'Spanish'], ['fr-FR', 'French']];
 const QUICK = [
-  ['😂 Joke', 'Tell me a really funny joke.'],
-  ['🔥 Roast me', 'Give me a gentle, friendly roast. Keep it kind.'],
-  ['🤓 Fun fact', 'Tell me a weird, fun fact.'],
-  ['🧩 Riddle', 'Give me a short riddle and wait for my answer.'],
+  ['laugh', 'Joke', 'Tell me a really funny joke.'],
+  ['flame', 'Roast me', 'Give me a gentle, friendly roast. Keep it kind.'],
+  ['bulb', 'Fun fact', 'Tell me a weird, fun fact.'],
+  ['help', 'Riddle', 'Give me a short riddle and wait for my answer.'],
 ];
 const STATUS = { idle: 'Ready', listening: 'Listening…', thinking: 'Thinking…', speaking: 'Talking…' };
 
@@ -63,6 +65,14 @@ const REACT = {
   Closed_Fist: { emoji: '✊', fx: '💥', label: 'a clenched fist', mood: 'scared', demo: ['Whoa, a fist! I surrender, take all my jokes!', 'Easy there, champ! Save that for rock paper scissors.'] },
   ILoveYou:    { emoji: '🤟', fx: '❤️', label: 'an I love you sign', mood: 'happy', demo: ['Aww, I love you too, in a totally friendly way!', 'That is the best sign ever. Right back at you!'] },
   Pointing_Up: { emoji: '☝️', fx: '❓', label: 'a pointing finger', mood: 'happy', demo: ['Ooh, one finger up! Do you have a question for me?', 'Pointing at the sky? Or asking for one more joke?'] },
+  // ---- extra signs (detected by core/extraGestures.js) ----
+  OK_Sign:      { emoji: '👌', fx: '👌', label: 'an OK sign', mood: 'happy', demo: ['Okay okay okay! Perfection, just like my jokes.', 'An OK sign! Chef kiss, zero notes.'] },
+  Rock_On:      { emoji: '🤘', fx: '🎸', label: 'a rock on sign', mood: 'happy', demo: ['Rock on! I would headbang, but my antenna would fall off.', 'Yeah! That is the sign of a legend. Encore!'] },
+  Call_Me:      { emoji: '🤙', fx: '📞', label: 'a call me sign', mood: 'happy', demo: ['Call you? I am a robot, I live in your browser. Ring ring!', 'Hang loose! Surf is up, wifi is strong.'] },
+  Thumb_Down:   { emoji: '👎', fx: '😢', label: 'a thumbs down', mood: 'scared', demo: ['Ouch, thumbs down! My circuits are crying a little.', 'Tough crowd! Let me try a better joke.'] },
+  Finger_Heart: { emoji: '💖', fx: '💖', label: 'a finger heart', mood: 'happy', demo: ['A tiny heart! My battery just went up ten percent.', 'Aww, finger heart received. Sending one right back.'] },
+  Three:        { emoji: '3️⃣', fx: '✨', label: 'three fingers up', mood: 'happy', demo: ['Three! Is that a score, a wish, or a hint for my next joke?', 'Three fingers! Third time is the charm.'] },
+  Vulcan:       { emoji: '🖖', fx: '🖖', label: 'a Vulcan salute', mood: 'happy', demo: ['Live long and prosper! Fascinating gesture, human.', 'A Vulcan salute! Logic says you are awesome.'] },
 };
 
 const CHAR_KEY = 'gesture-lab:buddy-char';
@@ -101,9 +111,9 @@ export function render(container) {
 
       <div class="card buddy-chat">
         <div class="chat" id="chat" aria-live="polite"></div>
-        <div class="chips quick">${QUICK.map(([l, p]) => `<button type="button" class="chip btn-chip" data-p="${p}">${l}</button>`).join('')}</div>
+        <div class="chips quick">${QUICK.map(([ic, l, p]) => `<button type="button" class="chip btn-chip" data-p="${p}">${iconLabel(ic, l, 16)}</button>`).join('')}</div>
         <form class="chat-form" id="form" autocomplete="off">
-          <button type="button" class="btn ghost mic" id="micBtn" aria-label="Speak" title="Speak">🎤</button>
+          <button type="button" class="btn ghost mic" id="micBtn" aria-label="Speak" title="Speak">${icon('mic', 20)}</button>
           <input id="input" type="text" placeholder="Say something funny…" aria-label="Message" />
           <button class="btn primary" type="submit">Send</button>
         </form>
@@ -272,8 +282,13 @@ export function render(container) {
       { gesture: r, demo: () => rand(r.demo) });
   }
 
+  const smoothExtra = createSmoother();
+
   function onHands({ hands, timestamp }) {
-    const g = hands[0]?.gesture || 'None', r = REACT[g];
+    const aspect = $('pipVideo').videoWidth / $('pipVideo').videoHeight || 4 / 3;
+    // Extra signs (OK, rock on, ...) win over MediaPipe's own gesture when they match.
+    const extra = smoothExtra(hands[0] ? detectExtra(hands[0], aspect) : null);
+    const g = extra || hands[0]?.gesture || 'None', r = REACT[g];
     const label = r ? `${r.emoji} ${g.replace('_', ' ')}` : hands.length ? '🖐️ …' : 'Show me a gesture!';
     if ($('pipLabel').textContent !== label) $('pipLabel').textContent = label;
     if (hands.length) pingActivity();
@@ -309,7 +324,7 @@ export function render(container) {
 
   // ---------- characters ----------
   function renderPicker() {
-    $('picker').innerHTML = CHAR_ORDER.map((id) => `<button type="button" class="char-btn${id === ch.id ? ' on' : ''}" role="radio" aria-checked="${id === ch.id}" data-id="${id}"><span aria-hidden="true">${CHARACTERS[id].emoji}</span> ${CHARACTERS[id].name}</button>`).join('');
+    $('picker').innerHTML = CHAR_ORDER.map((id) => `<button type="button" class="char-btn${id === ch.id ? ' on' : ''}" role="radio" aria-checked="${id === ch.id}" data-id="${id}"><span aria-hidden="true">${icon(CHAR_ICON[id] || 'robot', 18)}</span> ${CHARACTERS[id].name}</button>`).join('');
   }
 
   function setCharacter(id) {
