@@ -1,5 +1,6 @@
 // buddy.js — Zippy, a live talking AI buddy: speak or type, it talks back, jokes and teases (kindly).
 // Voice in = Web Speech API (Chrome/Edge). Voice out = SpeechSynthesis. Brain = OpenRouter, with canned fallback.
+// Avatar = 3D VRM model (Three.js, lazy-loaded) for characters listed in VRM_MODELS, 2D SVG for the rest / as fallback.
 import { getSettings } from '../core/storage.js';
 import { askAI } from '../core/openrouter.js';
 import { aiOrDemo } from '../core/demo.js';
@@ -18,6 +19,29 @@ const QUICK = [
   ['bulb', 'Fun fact', 'Tell me a weird, fun fact.'],
   ['help', 'Riddle', 'Give me a short riddle and wait for my answer.'],
 ];
+// Characters that have a 3D VRM model. BASE_URL keeps this working under the GitHub Pages base path (/exibition/).
+const VRM_MODELS = { zippy: `${import.meta.env.BASE_URL}models/zippy.vrm` };
+// Characters that should use Microsoft's free "Online (Natural)" neural voices when the browser offers them (Edge does).
+const NATURAL_VOICE_CHARS = ['zippy'];
+
+const isNatural = (v) => /natural/i.test(v.name);
+/** Best natural/friendly voice for the language, or null (caller falls back to the character's normal voice). */
+function pickNaturalVoice(voices, langCode) {
+  const code = String(langCode || 'en-US').replace('_', '-').toLowerCase();
+  const base = code.slice(0, 2);
+  if (base === 'en') {
+    return voices.find((v) => v.name.includes('Ana') && v.name.includes('Natural'))      // 1. Microsoft Ana (cheerful)
+      || voices.find((v) => v.name.includes('Jenny') && v.name.includes('Natural'))      // 2. Microsoft Jenny
+      || voices.find((v) => v.name.includes('Natural') && v.lang.startsWith('en'))        // 3. any English Natural voice
+      || voices.find((v) => v.name.includes('Google US English') || (v.lang.startsWith('en') && /female|woman/i.test(v.name))) // 4.
+      || null;
+  }
+  // Other UI languages: a Natural voice in the same language (exact locale first), never an English one.
+  const same = voices.filter((v) => v.lang.replace('_', '-').toLowerCase().startsWith(base));
+  return same.find((v) => isNatural(v) && v.lang.replace('_', '-').toLowerCase() === code) || same.find(isNatural) || null;
+}
+
+const GREETING_RE = /\b(hi|hello|hey|namaste)\b/i;
 const STATUS = { idle: 'Ready', listening: 'Listening…', thinking: 'Thinking…', speaking: 'Talking…' };
 
 // ---- offline / demo brain
@@ -124,6 +148,21 @@ export function render(container) {
   const $ = (id) => container.querySelector('#' + id);
   let active = true, state = 'idle', busy = false, chatId = 0, rec = null, listening = false, noSpeech = 0, speakId = 0, awake = false, demoShown = false;
   const history = [];
+  let vrmChar = null, vrmToken = 0; // 3D avatar controller + a token to ignore stale async loads
+
+  // ---------- voices (they load asynchronously, so listen for "voiceschanged") ----------
+  const hasTTS = 'speechSynthesis' in window;
+  let voices = [], voicesTimer = 0, resolveVoices = () => {};
+  const voicesLoaded = new Promise((res) => { resolveVoices = res; });
+  const refreshVoices = () => {
+    try { voices = speechSynthesis.getVoices(); } catch { voices = []; }
+    if (voices.length) { clearTimeout(voicesTimer); resolveVoices(); }
+  };
+  if (hasTTS) {
+    refreshVoices();
+    speechSynthesis.addEventListener('voiceschanged', refreshVoices);
+    voicesTimer = setTimeout(resolveVoices, 1500); // never block speech forever if no voice list ever arrives
+  }
   const lang = () => $('lang').value;
   const langName = () => $('lang').selectedOptions[0].textContent;
 
@@ -134,6 +173,55 @@ export function render(container) {
     $('avatar').dataset.state = s;
     $('status').textContent = STATUS[s];
     $('micBtn').classList.toggle('on', s === 'listening');
+    vrmChar?.setState(s); // speaking -> happy + mouth; listening/thinking -> head tilt; idle -> neutral
+  }
+
+  // ---------- 3D avatar ----------
+  /** The 3D bust shot needs a real stage: fixed 260-320px height and overflow hidden. */
+  function sizeAvatar(is3d) {
+    const a = $('avatar');
+    a.style.height = is3d ? 'clamp(260px, 40vh, 320px)' : '';
+    a.style.overflow = is3d ? 'hidden' : '';
+  }
+
+  function disposeVrm() {
+    vrmToken++;
+    vrmChar?.dispose();
+    vrmChar = null;
+  }
+
+  /** Lazy-loads Three.js + the VRM and overlays it on the avatar; the 2D SVG stays as the loading/failure fallback. */
+  async function mountVrm(url) {
+    const token = ++vrmToken;
+    let mod;
+    try { mod = await import('../core/vrmCharacter.js'); } catch (err) { console.warn('3D avatar module failed to load', err); sizeAvatar(false); return; }
+    if (!active || token !== vrmToken) return;
+
+    const avatar = $('avatar');
+    if (getComputedStyle(avatar).position === 'static') avatar.style.position = 'relative';
+    const host = document.createElement('div');
+    host.className = 'vrm-host';
+    Object.assign(host.style, { position: 'absolute', inset: '0', pointerEvents: 'none', opacity: '0', transition: 'opacity .4s' });
+    avatar.appendChild(host);
+
+    let ctrl;
+    try { ctrl = mod.createVrmCharacter(host, { url }); } catch (err) { // e.g. WebGL unavailable
+      console.warn('3D avatar unavailable, using 2D', err);
+      host.remove();
+      sizeAvatar(false);
+      return;
+    }
+    vrmChar = ctrl;
+    ctrl.setState(state);
+    try {
+      await ctrl.ready;
+      if (!active || token !== vrmToken) return; // already disposed by disposeVrm()
+      for (const c of avatar.children) if (c !== host) c.style.visibility = 'hidden'; // keep layout, hide the SVG
+      host.style.opacity = '1';
+    } catch (err) {
+      console.warn('Could not load the 3D model, using 2D', err);
+      if (token === vrmToken) { ctrl.dispose(); vrmChar = null; host.remove(); sizeAvatar(false); }
+    }
   }
 
   function addMsg(who, text) {
@@ -153,23 +241,35 @@ export function render(container) {
   function speak(text) {
     const id = ++speakId;
     const clean = stripEmoji(text);
+    if (text === ch.hi) vrmChar?.triggerWave(); // greeting -> wave
     const canSpeak = getSettings().speech && 'speechSynthesis' in window;
     if (!canSpeak) { // no voice: still animate the mouth for a believable duration
       setState('speaking');
       return new Promise((res) => setTimeout(() => { if (id === speakId) { setState('idle'); res(true); } else res(false); },
         Math.min(6000, 600 + clean.length * 45)));
     }
-    return new Promise((res) => {
+    return new Promise((res) => voicesLoaded.then(() => {
+      if (id !== speakId) return res(false); // interrupted while waiting for the voice list
+      refreshVoices();
+      const wantNatural = NATURAL_VOICE_CHARS.includes(ch.id);
+      const v = (wantNatural && pickNaturalVoice(voices, lang())) || pickVoice(voices, lang(), ch.voice);
+      const natural = wantNatural && !!v && isNatural(v);
       const u = new SpeechSynthesisUtterance(clean);
-      u.lang = lang(); u.pitch = ch.pitch; u.rate = ch.rate;
-      const v = pickVoice(speechSynthesis.getVoices(), lang(), ch.voice);
+      u.lang = v?.lang || lang();
       if (v) u.voice = v;
+      // Neural voices distort if the pitch is pushed high, so use gentle values for them.
+      u.pitch = natural ? 1.1 : ch.pitch;
+      u.rate = natural ? 1.05 : ch.rate;
       const done = () => { if (id !== speakId) return res(false); if (state === 'speaking') setState('idle'); res(true); };
       u.onstart = () => { if (id === speakId) setState('speaking'); };
+      u.onboundary = (e) => { // lip-sync: open the mouth (aa) on each spoken word
+        if (id !== speakId || (e.name && e.name !== 'word')) return;
+        vrmChar?.pulseMouth(Math.min(1, 0.35 + (e.charLength || 4) * 0.07));
+      };
       u.onend = done; u.onerror = done;
       speechSynthesis.cancel();
       speechSynthesis.speak(u);
-    });
+    }));
   }
   function stopSpeaking() {
     speakId++;
@@ -225,6 +325,7 @@ export function render(container) {
     if (!text || busy) return;
     stopListening(); stopSpeaking();
     awake = true; $('wakeBtn').hidden = true; pingActivity();
+    if (!opts.gesture && GREETING_RE.test(text)) vrmChar?.triggerWave();
     addMsg(opts.gesture ? 'gesture' : 'user', opts.gesture ? `${opts.gesture.emoji} You showed ${opts.gesture.label}` : text);
     history.push({ role: 'user', content: text });
     busy = true; setState('thinking');
@@ -277,6 +378,8 @@ export function render(container) {
     floatEmoji(r.fx);
     const av = $('avatar');
     av.dataset.mood = r.mood;
+    vrmChar?.setMood(r.mood);
+    if (g === 'Open_Palm') vrmChar?.triggerWave();
     setTimeout(() => { if (active) delete av.dataset.mood; }, 1800);
     send(`[The person just showed you ${r.label} with their hand, without speaking. React in character with one short, fun sentence.]`,
       { gesture: r, demo: () => rand(r.demo) });
@@ -331,9 +434,12 @@ export function render(container) {
     ch = CHARACTERS[id] || CHARACTERS.zippy;
     try { localStorage.setItem(CHAR_KEY, ch.id); } catch { /* storage blocked */ }
     chatId++; busy = false; noSpeech = 0;
+    disposeVrm();
     stopListening(); stopSpeaking(); setState('idle');
     history.length = 0; $('chat').innerHTML = '';
     $('avatar').innerHTML = ch.svg;
+    sizeAvatar(!!VRM_MODELS[ch.id]);
+    if (VRM_MODELS[ch.id]) mountVrm(VRM_MODELS[ch.id]);
     $('title').textContent = `Talk to ${ch.name}`;
     $('wakeBtn').textContent = `Wake up ${ch.name}`;
     renderPicker();
@@ -376,6 +482,9 @@ export function render(container) {
     active = false;
     stopListening();
     stopSpeaking();
+    disposeVrm(); // stops the render loop, frees GPU memory, removes the canvas
+    clearTimeout(voicesTimer);
+    if (hasTTS) speechSynthesis.removeEventListener('voiceschanged', refreshVoices);
     unsubReact?.();
     getTracker().stop();
     stopCamera($('pipVideo'));
