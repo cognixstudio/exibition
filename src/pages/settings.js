@@ -4,9 +4,9 @@ import { askAI, AIError, NO_KEY_HTML } from '../core/openrouter.js';
 import { toast, esc } from '../core/ui.js';
 
 const SUGGESTED_MODELS = [
-  'google/gemini-3.8-flash',
-  'google/gemini-3.7-flash',
-  'google/gemini-3.6-flash',
+  'openrouter/free',
+  'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
+  'google/gemma-4-26b-a4b-it',
 ];
 
 export function render(container) {
